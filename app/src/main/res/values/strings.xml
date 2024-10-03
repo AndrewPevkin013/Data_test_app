@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Data test app</string>
+    <string name="todo">\n</string>
+    <string name="magn" />
+    <string name="accel" />
+    <string name="cancel">Cansel</string>
+    <string name="action_settings">Action Settings</string>
+</resources>

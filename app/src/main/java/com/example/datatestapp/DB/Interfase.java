@@ -10,7 +10,7 @@ public interface Interfase {
     @POST("adduser.php") //php file
     Call<Response>adduser(@Field("name") String name, @Field("latitude") String latitude,
                           @Field("longitude") String longitude, @Field("altitude") String altitude,
-                          @Field("dateTime") String dateTime);
+                          @Field("date_time") String dateTime);
 
 
 }

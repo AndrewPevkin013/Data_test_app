@@ -34,12 +34,13 @@ import retrofit2.Callback;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String TAG = "MainActivity"; // Для логов
+    private static final String TAG = "MainActivity";
     FusedLocationProviderClient mFusedLocationClient;
     int PERMISSION_ID = 44;
     private Items item;
-    private TextView txtShowData;
     private LocationManager locationManager;
+    private boolean isTracking = false;
+    private LocationCallback mLocationCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,9 +52,7 @@ public class MainActivity extends AppCompatActivity {
         Button button = findViewById(R.id.startButton);
         DialogUserName myDialog = new DialogUserName();
         myDialog.show(getSupportFragmentManager(), "123");
-        txtShowData = findViewById(R.id.txtShowData);
 
-        // Инициализация LocationManager
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (locationManager == null) {
             Log.e(TAG, "LocationManager is null");
@@ -63,19 +62,22 @@ public class MainActivity extends AppCompatActivity {
 
         Log.d(TAG, "App started");
 
+
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (button.getText().equals("START")) {
+                if (!isTracking) {
                     button.setText("STOP");
                     requestLocationUpdates();
+                    isTracking = true;
                 } else {
                     button.setText("START");
+                    stopLocationUpdates();
+                    isTracking = false;
                 }
             }
         });
     }
-
 
     @SuppressLint("MissingPermission")
     private void requestLocationUpdates() {
@@ -83,8 +85,49 @@ public class MainActivity extends AppCompatActivity {
             if (isLocationEnabled()) {
                 LocationRequest mLocationRequest = LocationRequest.create();
                 mLocationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-                mLocationRequest.setInterval(5000); // Обновлять каждые 5 секунд
-                mLocationRequest.setFastestInterval(2000); // Минимальный интервал 2 секунды
+                mLocationRequest.setInterval(200);
+                mLocationRequest.setFastestInterval(150);
+
+                mLocationCallback = new LocationCallback() {
+                    @Override
+                    public void onLocationResult(LocationResult locationResult) {
+                        if (locationResult == null) {
+                            Log.e(TAG, "Location result is null");
+                            return;
+                        }
+
+                        for (Location location : locationResult.getLocations()) {
+                            Log.d(TAG, "Location: " + location.getLatitude() + ", " + location.getLongitude());
+                            String dateTime = item.getDateTime();
+                            Log.d(TAG, "DateTime: " + dateTime);
+
+                            Call<Response> call = Connection.getConnection().create(Interfase.class)
+                                    .adduser(item.getName(), Double.toString(location.getLatitude()),
+                                            Double.toString(location.getLongitude()),
+                                            Double.toString(location.getAltitude()),
+                                            item.getDateTime());
+
+
+                            call.enqueue(new Callback<Response>() {
+                                @Override
+                                public void onResponse(Call<Response> call, retrofit2.Response<Response> response) {
+                                    if (response.isSuccessful()) {
+                                        Toast.makeText(MainActivity.this, "Data sent successfully", Toast.LENGTH_SHORT).show();
+                                    } else {
+                                        Toast.makeText(MainActivity.this, "Server Error: " + response.code(), Toast.LENGTH_SHORT).show();
+                                        Log.e(TAG, "Server error: " + response.code());
+                                    }
+                                }
+
+                                @Override
+                                public void onFailure(Call<Response> call, Throwable t) {
+                                    Toast.makeText(MainActivity.this, "Network Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                                    Log.e(TAG, "Network error: " + t.getMessage());
+                                }
+                            });
+                        }
+                    }
+                };
 
                 mFusedLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.getMainLooper());
                 Log.d(TAG, "Requesting location updates");
@@ -98,42 +141,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private LocationCallback mLocationCallback = new LocationCallback() {
-        @Override
-        public void onLocationResult(LocationResult locationResult) {
-            if (locationResult == null) {
-                Log.e(TAG, "Location result is null");
-                return;
-            }
 
-            for (Location location : locationResult.getLocations()) {
-                Log.d(TAG, "Location: " + location.getLatitude() + ", " + location.getLongitude());
-
-                Call<Response> call = Connection.getConnection().create(Interfase.class)
-                        .adduser(item.getName(), Double.toString(location.getLatitude()),
-                                Double.toString(location.getLongitude()),
-                                Double.toString(location.getAltitude()), item.getDateTime());
-
-                call.enqueue(new Callback<Response>() {
-                    @Override
-                    public void onResponse(Call<Response> call, retrofit2.Response<Response> response) {
-                        if (response.isSuccessful()) {
-                            Toast.makeText(MainActivity.this, "Data sent successfully", Toast.LENGTH_SHORT).show();
-                        } else {
-                            Toast.makeText(MainActivity.this, "Server Error: " + response.code(), Toast.LENGTH_SHORT).show();
-                            Log.e(TAG, "Server error: " + response.code());
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(Call<Response> call, Throwable t) {
-                        Toast.makeText(MainActivity.this, "Network Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-                        Log.e(TAG, "Network error: " + t.getMessage());
-                    }
-                });
-            }
+    private void stopLocationUpdates() {
+        if (mLocationCallback != null) {
+            mFusedLocationClient.removeLocationUpdates(mLocationCallback);
+            Log.d(TAG, "Location updates stopped");
         }
-    };
+    }
 
     private boolean checkPermissions() {
         boolean coarseLocationGranted = ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
@@ -185,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        if (checkPermissions()) {
+        if (checkPermissions() && isTracking) {
             requestLocationUpdates();
         }
     }

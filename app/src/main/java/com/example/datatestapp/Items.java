@@ -2,14 +2,14 @@ package com.example.datatestapp;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
+import java.util.Locale;
 
 public class Items {
 
     private String mName;
-    public Items() {}
 
+    public Items() { }
 
     public void setName(String name) {
         mName = name;
@@ -17,15 +17,16 @@ public class Items {
 
 
     public String getDateTime() {
-        String pattern = "MM/dd/yyyy HH:mm:ss";
-        DateFormat df = new SimpleDateFormat(pattern);
-        Date today = Calendar.getInstance().getTime();
-        String dateTime = df.format(today);
-        return dateTime;
+        Date currentDate = new Date();
+        DateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+        return dateFormat.format(currentDate);
     }
 
 
     public String getName() {
+        if (mName != null)
+            return mName;
+        else
             return "PumpkinEater69";
     }
 }
